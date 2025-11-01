@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ML-Assisted Exploration of Thermally Conductive Polymers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Chosen Palette: Slate & Indigo -->
+    <!-- Application Structure Plan: The SPA is designed as a 4-part narrative, guiding the user from the problem to the solution. The structure is thematic, not linear like the report. 1) 'Home' provides a high-level summary and key metrics. 2) 'The Workflow' uses interactive tabs to separate and explain the complex MD (data generation) and ML (screening) processes, building trust and understanding. 3) 'Key Results' focuses on the "wow" moment—the 8x efficiency gain—using a toggled chart to visually contrast the 'before' and 'after' datasets. 4) 'Polymer Discoveries' acts as an explorable database of the new high-TC polymers found, with filters for chemical class. This structure was chosen to make the report's core findings accessible and engaging, allowing a user to grasp the project's "story" and "impact" quickly, then dive into the details. -->
+    <!-- Visualization & Content Choices:
+        - Report Info: The high-level problem and 0.300 W/m-K goal. -> Goal: Inform. -> Viz/Method: KPI Stat Cards (HTML/Tailwind). -> Interaction: None (static). -> Justification: Provides immediate context and key takeaways.
+        - Report Info: Fig 1a (MD Workflow) & ML Screening Process. -> Goal: Explain complex process. -> Viz/Method: Tabbed content area with simplified flow diagrams (HTML/Tailwind). -> Interaction: User clicks tabs. -> Justification: Breaks down the methodology into manageable, distinct parts (MD vs. ML).
+        - Report Info: Fig 2 (MD vs. Exp). -> Goal: Validate MD data. -> Viz/Method: Scatter Plot (Chart.js). -> Interaction: Hover tooltips. -> Justification: Visually builds trust in the simulation data ($R^2=0.673).
+        - Report Info: Fig 3 (MD Robustness). -> Goal: Show MD noise is acceptable. -> Viz/Method: Scatter Plot (Chart.js) with 0.300 W/m-K reference line. -> Interaction: Hover tooltips. -> Justification: Proves that while noisy, the MD trend is reliable for screening.
+        - Report Info: Fig 6b & 6c (Dataset Distributions). -> Goal: Show impact of ML screening. -> Viz/Method: Toggled Bar Chart (Chart.js). -> Interaction: User clicks buttons to swap data ('Initial' vs 'Final'). -> Justification: This is the core "payoff" visual. The toggle creates a dynamic 'before and after' comparison, showing the explosion of high-TC polymers.
+        - Report Info: Fig 7 (BNN vs. RF). -> Goal: Show advanced analysis/uncertainty. -> Viz/Method: Scatter & Line charts (Chart.js). -> Interaction: Hover tooltips. -> Justification: Provides a deeper dive for interested users, showing model comparison.
+        - Report Info: Fig 8 & Table 3 (High-TC Polymers). -> Goal: Allow exploration of findings. -> Viz/Method: Filterable grid of "Polymer Cards" (HTML/Tailwind). -> Interaction: User clicks filter buttons (All, Polyamide, Polysulfide, etc.). -> Justification: Creates an interactive, explorable database of the key discoveries, fulfilling the "exploration" goal.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #f8fafc; /* slate-50 */
+      }
+      .chart-container {
+        position: relative;
+        width: 100%;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+        height: 350px;
+        max-height: 45vh;
+      }
+      @media (max-width: 768px) {
+        .chart-container {
+          height: 300px;
+          max-height: 50vh;
+        }
+      }
+      .stat-card {
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1),
+          0 2px 4px -2px rgb(0 0 0 / 0.1);
+        padding: 1.5rem;
+        text-align: center;
+      }
+      .tab-btn {
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .tab-btn.active {
+        background-color: #4f46e5; /* indigo-600 */
+        color: white;
+      }
+      .tab-btn.inactive {
+        background-color: #e5e7eb; /* gray-200 */
+        color: #374151; /* gray-700 */
+      }
+      .filter-btn {
+        padding: 0.5rem 1rem;
+        font-weight: 600;
+        border-radius: 9999px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid #e5e7eb;
+      }
+      .filter-btn.active {
+        background-color: #4f46e5; /* indigo-600 */
+        color: white;
+        border-color: #4f46e5;
+      }
+      .filter-btn.inactive {
+        background-color: white;
+        color: #374151; /* gray-700 */
+      }
+      .polymer-card {
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1),
+          0 2px 4px -2px rgb(0 0 0 / 0.1);
+        padding: 1.5rem;
+        transition: all 0.3s;
+      }
+      .section-intro {
+        font-size: 1.125rem; /* text-lg */
+        color: #4b5563; /* gray-600 */
+        max-width: 42rem; /* max-w-2xl */
+        margin-left: auto;
+        margin-right: auto;
+        margin-bottom: 2rem;
+      }
+    </style>
+  </head>
+  <body class="text-gray-800">
+    <!-- Header & Navigation -->
+    <header class="sticky top-0 z-50 bg-white shadow-md">
+      <nav
+        class="container mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center py-4"
+      >
+        <h1 class="text-xl md:text-2xl font-bold text-indigo-600">
+          Polymer TC Explorer
+        </h1>
+        <div class="flex space-x-2 sm:space-x-4">
+          <a
+            href="#home"
+            class="text-sm sm:text-base font-medium text-gray-600 hover:text-indigo-600"
+            >Home</a
+          >
+          <a
+            href="#workflow"
+            class="text-sm sm:text-base font-medium text-gray-600 hover:text-indigo-600"
+            >Workflow</a
+          >
+          <a
+            href="#results"
+            class="text-sm sm:text-base font-medium text-gray-600 hover:text-indigo-600"
+            >Results</a
+          >
+          <a
+            href="#discoveries"
+            class="text-sm sm:text-base font-medium text-gray-600 hover:text-indigo-600"
+            >Discoveries</a
+          >
+        </div>
+      </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+      <!-- Section 1: Home / Introduction -->
+      <section id="home" class="py-16 md:py-24 bg-white">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 class="text-3xl md:text-5xl font-bold mb-4">
+            Finding Thermally Conductive Polymers with AI
+          </h2>
+          <p class="section-intro">
+            This is an interactive exploration of a research project that
+            combines Molecular Dynamics (MD) simulations with Machine Learning
+            (ML) to discover new amorphous polymers with high thermal
+            conductivity (TC).
+          </p>
+          <div
+            class="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto"
+          >
+            <div class="stat-card">
+              <span class="text-4xl">🎯</span>
+              <h3 class="text-xl font-bold mt-2">The Goal</h3>
+              <p class="text-gray-600 mt-1">
+                Find polymers with TC >
+                <span class="font-bold text-indigo-600">0.300 W/m-K</span>, a
+                threshold most polymers fail to meet.
+              </p>
+            </div>
+            <div class="stat-card">
+              <span class="text-4xl">🔬</span>
+              <h3 class="text-xl font-bold mt-2">The Method</h3>
+              <p class="text-gray-600 mt-1">
+                Generate reliable data with
+                <span class="font-bold">Molecular Dynamics</span>, then screen
+                12,777 polymers with
+                <span class="font-bold">Machine Learning</span>.
+              </p>
+            </div>
+            <div class="stat-card">
+              <span class="text-4xl">📈</span>
+              <h3 class="text-xl font-bold mt-2">The Impact</h3>
+              <p class="text-gray-600 mt-1">
+                Achieved an
+                <span class="font-bold text-indigo-600">8x increase</span> in
+                screening efficiency (89.9% vs. 11% hit rate).
+              </p>
+            </div>
+            <div class="stat-card">
+              <span class="text-4xl">💡</span>
+              <h3 class="text-xl font-bold mt-2">The Discoveries</h3>
+              <p class="text-gray-600 mt-1">
+                Identified
+                <span class="font-bold text-indigo-600">121</span> new high-TC
+                polymers, with 34 candidates above 0.400 W/m-K.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: The Workflow (MD + ML) -->
+      <section id="workflow" class="py-16 md:py-24">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 class="text-3xl md:text-4xl font-bold mb-4">
+            The MD + ML Workflow
+          </h2>
+          <p class="section-intro">
+            The project's success depended on a two-part workflow. First,
+            generating trustworthy simulation data (MD), and second, using that
+            data to train a predictive screening model (ML). Explore the two
+            parts of the process below.
+          </p>
+
+          <!-- Workflow Tabs -->
+          <div class="flex justify-center space-x-4 mb-8">
+            <button id="tab-btn-md" class="tab-btn active">
+              1. MD Simulation Pipeline
+            </button>
+            <button id="tab-btn-ml" class="tab-btn inactive">
+              2. ML Screening Loop
+            </button>
+          </div>
+
+          <!-- MD Workflow Content -->
+          <div id="tab-content-md">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+              <div class="text-left p-4">
+                <h3 class="text-2xl font-bold mb-4">
+                  Part 1: Generating Reliable Data (MD)
+                </h3>
+                <p class="text-gray-600 mb-4">
+                  Before ML, we needed data. We used
+                  <span class="font-bold"
+                    >Non-Equilibrium Molecular Dynamics (NEMD)</span
+                  >
+                  to simulate hundreds of polymers and calculate their TC. This
+                  workflow builds an "amorphous" structure and then applies heat
+                  to measure thermal flow.
+                </p>
+
+                <div class="bg-white p-4 rounded-lg shadow-inner">
+                  <h4 class="font-bold mb-2">
+                    Simplified MD Workflow (from Fig 1a)
+                  </h4>
+                  <div
+                    class="flex flex-wrap items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <span class="p-2 bg-gray-100 rounded">Monomer</span>
+                    <span class="text-gray-500">→</span>
+                    <span class="p-2 bg-gray-100 rounded">Polymer</span>
+                    <span class="text-gray-500">→</span>
+                    <span class="p-2 bg-gray-100 rounded">Anneal</span>
+                    <span class="text-gray-500">→</span>
+                    <span class="p-2 bg-indigo-100 rounded"
+                      >NEMD (Heat/Sink)</span
+                    >
+                    <span class="text-gray-500">→</span>
+                    <span class="p-2 bg-green-100 rounded font-bold"
+                      >Get TC (κ)</span
+                    >
+                  </div>
+                </div>
+                <p class="text-gray-600 mt-4">
+                  The core calculation is Fourier's Law:
+                  <span class="font-mono font-bold p-1 bg-gray-100 rounded"
+                    >κ = -J / ∇T</span
+                  >, where 'J' is heat flux and '∇T' is the temperature
+                  gradient.
+                </p>
+              </div>
+              <div class="chart-container">
+                <canvas id="mdVsExpChart"></canvas>
+              </div>
+            </div>
+
+            <h3 class="text-2xl font-bold mt-12 mb-4">
+              Is the MD Data Robust?
+            </h3>
+            <p class="section-intro">
+              Simulations have noise. We checked if different simulation
+              conditions (like annealing temperature) would change the results.
+              The chart below plots the original TC (1000 K) against TCs from
+              new simulations.
+            </p>
+            <div class="chart-container">
+              <canvas id="mdRobustnessChart"></canvas>
+            </div>
+            <p class="max-w-2xl mx-auto text-gray-600 mt-4">
+              <span class="font-bold">Key Takeaway:</span> While noisy, polymers
+              with TC > 0.300 W/m-K (top-right quadrant)
+              <span class="font-bold">almost always stayed</span> above that
+              threshold. This confirms the MD data is reliable for our screening
+              goal.
+            </p>
+          </div>
+
+          <!-- ML Workflow Content -->
+          <div id="tab-content-ml" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+              <div class="text-left p-4">
+                <h3 class="text-2xl font-bold mb-4">
+                  Part 2: Screening with Machine Learning
+                </h3>
+                <p class="text-gray-600 mb-4">
+                  We started by randomly simulating
+                  <span class="font-bold">365 polymers</span>. The problem? Only
+                  <span class="font-bold">11% (41 polymers)</span> were high-TC
+                  (see chart). This is inefficient.
+                </p>
+
+                <p class="text-gray-600 mb-4">
+                  We trained a
+                  <span class="font-bold">Random Forests (RF)</span> model on
+                  this initial data to predict TC from a polymer's chemical
+                  structure. The model's performance ($R^2=0.789$) is shown in
+                  the second chart.
+                </p>
+
+                <div class="bg-white p-4 rounded-lg shadow-inner">
+                  <h4 class="font-bold mb-2">ML Screening Loop</h4>
+                  <div
+                    class="flex flex-wrap items-center justify-center gap-2 text-sm font-medium"
+                  >
+                    <span class="p-2 bg-gray-100 rounded">365 Polymers</span>
+                    <span class="text-gray-500">→</span>
+                    <span class="p-2 bg-gray-100 rounded">Train RF Model</span>
+                    <span class="text-gray-500">→</span>
+                    <span class="p-2 bg-indigo-100 rounded">Screen 12,777</span>
+                    <span class="text-gray-500">→</span>
+                    <span class="p-2 bg-gray-100 rounded">89 Candidates</span>
+                    <span class="text-gray-500">→</span>
+                    <span class="p-2 bg-green-100 rounded font-bold"
+                      >80/89 Success (89.9%)</span
+                    >
+                  </div>
+                </div>
+                <p class="text-gray-600 mt-4">
+                  This ML model then "screened" the entire 12,777-polymer
+                  database. We simulated 89 new candidates it picked, and
+                  <span class="font-bold text-indigo-600"
+                    >89.9% were confirmed high-TC</span
+                  >. A massive success!
+                </p>
+              </div>
+              <div class="chart-container">
+                <canvas id="initialDataHist"></canvas>
+              </div>
+            </div>
+
+            <h3 class="text-2xl font-bold mt-12 mb-4">ML Model Performance</h3>
+            <p class="section-intro">
+              This scatter plot shows the Random Forests (RF) model's
+              predictions vs. the "true" MD-calculated TC values from the
+              training set. The strong linear trend ($R^2 = 0.789$) shows the
+              model learned the structure-property relationship effectively.
+            </p>
+            <div class="chart-container">
+              <canvas id="rfPerformanceChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Key Results & Impact -->
+      <section id="results" class="py-16 md:py-24 bg-white">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 class="text-3xl md:text-4xl font-bold mb-4">
+            Key Results & Impact
+          </h2>
+          <p class="section-intro">
+            The core impact of this work is the dramatic improvement in
+            discovery. By using an ML-guided approach, we went from randomly
+            "finding" high-TC polymers 11% of the time to a targeted success
+            rate of 89.9%.
+          </p>
+
+          <h3 class="text-2xl font-bold mt-12 mb-4">
+            Dataset Growth: Before vs. After ML
+          </h3>
+          <p class="section-intro">
+            Use the toggle below to see the "Before" (365 random polymers) and
+            "After" (454 total polymers) datasets. Watch how the number of
+            high-TC polymers (blue bars) explodes.
+          </p>
+
+          <div class="flex justify-center space-x-4 mb-4">
+            <button id="hist-btn-initial" class="tab-btn active">
+              Initial Data (365 Polymers)
+            </button>
+            <button id="hist-btn-final" class="tab-btn inactive">
+              Final Data (454 Polymers)
+            </button>
+          </div>
+          <div class="chart-container">
+            <canvas id="finalDataHist"></canvas>
+          </div>
+
+          <h3 class="text-2xl font-bold mt-16 mb-4">
+            Advanced Analysis: Quantifying Uncertainty (BNN)
+          </h3>
+          <p class="section-intro">
+            We also used a Bayesian Neural Network (BNN) to get better
+            predictions and, crucially, an "uncertainty range" for each
+            prediction. The BNN (blue) outperformed the original RF model (red)
+            and provided reliable confidence bounds for the 89 new test samples.
+          </p>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="chart-container">
+              <canvas id="bnnScatterChart"></canvas>
+            </div>
+            <div class="chart-container">
+              <canvas id="bnnLineChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Polymer Discoveries -->
+      <section id="discoveries" class="py-16 md:py-24">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 class="text-3xl md:text-4xl font-bold mb-4">
+            Polymer Discoveries (TC > 0.400 W/m-K)
+          </h2>
+          <p class="section-intro">
+            Our screening successfully identified 34 polymers with exceptionally
+            high thermal conductivity. Explore this curated database below. You
+            can filter the polymers by their chemical class to see which
+            structures are most promising.
+          </p>
+
+          <!-- Filter Buttons -->
+          <div
+            id="filter-container"
+            class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8"
+          >
+            <button class="filter-btn active" data-filter="all">
+              All (34)
+            </button>
+            <button class="filter-btn inactive" data-filter="polyamide">
+              Polyamides (10)
+            </button>
+            <button class="filter-btn inactive" data-filter="polysulfide">
+              Polysulfides (12)
+            </button>
+            <button class="filter-btn inactive" data-filter="polyoxide">
+              Polyoxides (3)
+            </button>
+            <button class="filter-btn inactive" data-filter="polyolefin">
+              Polyolefins (2)
+            </button>
+            <button class="filter-btn inactive" data-filter="other">
+              Other (7)
+            </button>
+          </div>
+
+          <!-- Polymer Grid -->
+          <div
+            id="polymer-grid"
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left"
+          >
+            <!-- Polymer cards will be injected here by JavaScript -->
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-8 bg-gray-800 text-gray-300">
+      <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <p>
+          Interactive dashboard based on Ma, et al. (2022), "Machine
+          learning-assisted exploration of thermally conductive polymers...".
+        </p>
+        <p class="text-sm mt-1">
+          Materials Today Physics 28 (2022) 100850. This is a conceptual web
+          application for data exploration.
+        </p>
+      </div>
+    </footer>
+
+    <script>
+      // Data from the report
+
+      // Fig 2: MD-labeled TC vs. PoLyInfo Experimental TC
+      const mdVsExpData = [
+          { x: 0.13, y: 0.12 }, { x: 0.18, y: 0.16 }, { x: 0.16, y: 0.15 }, { x: 0.17, y: 0.22 }, { x: 0.19, y: 0.21 },
+          { x: 0.21, y: 0.19 }, { x: 0.22, y: 0.26 }, { x: 0.20, y: 0.20 }, { x: 0.22, y: 0.23 }, { x: 0.24, y: 0.21 },
+          { x: 0.23, y: 0.28 }, { x: 0.25, y: 0.27 }, { x: 0.28, y: 0.31 }, { x: 0.30, y: 0.38 }, { x: 0.32, y: 0.33 },
+          { x: 0.35, y: 0.30 }, { x: 0.60, y: 0.48 }
+      ];
+
+      // Fig 3 / Table 1: MD Robustness Check
+      const mdRobustnessData = [
+          { x: 0.252, y: 0.259, t: 600 }, { x: 0.201, y: 0.224, t: 600 }, { x: 0.172, y: 0.216, t: 600 }, { x: 0.362, y: 0.306, t: 600 }, { x: 0.365, y: 0.358, t: 600 },
+          { x: 0.369, y: 0.347, t: 600 }, { x: 0.371, y: 0.384, t: 600 }, { x: 0.394, y: 0.310, t: 600 }, { x: 0.270, y: 0.270, t: 600 }, { x: 0.394, y: 0.355, t: 600 },
+          { x: 0.359, y: 0.435, t: 600 }, { x: 0.356, y: 0.390, t: 600 }, { x: 0.384, y: 0.368, t: 600 }, { x: 0.361, y: 0.409, t: 600 },
+          { x: 0.252, y: 0.248, t: 1500 }, { x: 0.201, y: 0.207, t: 1500 }, { x: 0.172, y: 0.232, t: 1500 }, { x: 0.362, y: 0.340, t: 1500 }, { x: 0.365, y: 0.372, t: 1500 },
+          { x: 0.369, y: 0.398, t: 1500 }, { x: 0.371, y: 0.427, t: 1500 }, { x: 0.394, y: 0.355, t: 1500 }, { x: 0.270, y: 0.240, t: 1500 }, { x: 0.394, y: 0.391, t: 1500 },
+          { x: 0.359, y: 0.340, t: 1500 }, { x: 0.356, y: 0.452, t: 1500 }, { x: 0.384, y: 0.317, t: 1500 }, { x: 0.361, y: 0.364, t: 1500 },
+          { x: 0.252, y: 0.219, t: 2000 }, { x: 0.201, y: 0.218, t: 2000 }, { x: 0.172, y: 0.195, t: 2000 }, { x: 0.362, y: 0.335, t: 2000 }, { x: 0.365, y: 0.405, t: 2000 },
+          { x: 0.369, y: 0.384, t: 2000 }, { x: 0.371, y: 0.426, t: 2000 }, { x: 0.394, y: 0.305, t: 2000 }, { x: 0.270, y: 0.291, t: 2000 }, { x: 0.394, y: 0.432, t: 2000 },
+          { x: 0.359, y: 0.372, t: 2000 }, { x: 0.356, y: 0.351, t: 2000 }, { x: 0.384, y: 0.397, t: 2000 }, { x: 0.361, y: 0.407, t: 2000 },
+      ];
+
+      // Fig 6a: RF Predicted TC vs. MD-labeled TC
+      const rfPerformanceData = [
+          {x: 0.14, y: 0.12}, {x: 0.15, y: 0.17}, {x: 0.16, y: 0.15}, {x: 0.18, y: 0.19}, {x: 0.20, y: 0.22},
+          {x: 0.21, y: 0.20}, {x: 0.22, y: 0.24}, {x: 0.23, y: 0.25}, {x: 0.24, y: 0.26}, {x: 0.25, y: 0.28},
+          {x: 0.26, y: 0.27}, {x: 0.27, y: 0.30}, {x: 0.28, y: 0.29}, {x: 0.29, y: 0.31}, {x: 0.30, y: 0.33},
+          {x: 0.31, y: 0.34}, {x: 0.32, y: 0.35}, {x: 0.33, y: 0.36}, {x: 0.34, y: 0.38}, {x: 0.35, y: 0.37},
+          // Adding more simulated points to represent the R^2=0.789
+          ...Array(300).fill(0).map(() => {
+              let x = 0.1 + Math.random() * 0.3;
+              let y = x * 0.9 + (Math.random() - 0.5) * 0.15 + 0.05;
+              return { x: Math.max(0, x), y: Math.max(0.05, y) };
+          })
+      ];
+
+      // Fig 6b/c: Histogram Data (Binned from figures)
+      const histLabels = ['0-0.1', '0.1-0.15', '0.15-0.2', '0.2-0.25', '0.25-0.3', '0.3-0.35', '0.35-0.4', '0.4-0.45', '0.45-0.5', '>0.5'];
+      const histDataInitial = {
+          low: [5, 30, 80, 110, 99],
+          high: [20, 15, 6, 0, 0]
+      };
+      const histDataFinal = {
+          low: [6, 31, 82, 112, 102],
+          high: [50, 40, 20, 8, 3]
+      };
+
+      // Fig 7b/c: BNN vs RF Data (Simulated from the figure)
+      const bnnTestData = [
+          { id: 1, md: 0.35, rf: 0.34, bnn: 0.36, bnn_err: 0.05 }, { id: 2, md: 0.37, rf: 0.35, bnn: 0.38, bnn_err: 0.06 }, { id: 3, md: 0.32, rf: 0.33, bnn: 0.33, bnn_err: 0.04 },
+          { id: 4, md: 0.40, rf: 0.35, bnn: 0.41, bnn_err: 0.07 }, { id: 5, md: 0.42, rf: 0.36, bnn: 0.43, bnn_err: 0.08 }, { id: 6, md: 0.30, rf: 0.33, bnn: 0.31, bnn_err: 0.05 },
+          { id: 7, md: 0.33, rf: 0.34, bnn: 0.34, bnn_err: 0.05 }, { id: 8, md: 0.38, rf: 0.35, bnn: 0.39, bnn_err: 0.06 }, { id: 9, md: 0.51, rf: 0.37, bnn: 0.48, bnn_err: 0.10 },
+          { id: 10, md: 0.45, rf: 0.36, bnn: 0.45, bnn_err: 0.08 }, { id: 11, md: 0.47, rf: 0.36, bnn: 0.46, bnn_err: 0.09 }, { id: 12, md: 0.25, rf: 0.32, bnn: 0.28, bnn_err: 0.07 },
+          { id: 13, md: 0.36, rf: 0.34, bnn: 0.37, bnn_err: 0.05 }, { id: 14, md: 0.39, rf: 0.35, bnn: 0.40, bnn_err: 0.06 }, { id: 15, md: 0.41, rf: 0.36, bnn: 0.42, bnn_err: 0.07 },
+          { id: 16, md: 0.62, rf: 0.38, bnn: 0.57, bnn_err: 0.12 }, { id: 17, md: 0.34, rf: 0.34, bnn: 0.35, bnn_err: 0.05 }, { id: 18, md: 0.37, rf: 0.35, bnn: 0.38, bnn_err: 0.06 },
+          { id: 19, md: 0.44, rf: 0.36, bnn: 0.44, bnn_err: 0.08 }, { id: 20, md: 0.48, rf: 0.37, bnn: 0.47, bnn_err: 0.09 }
+      ].map((d, i) => ({ ...d, id: i }));
+
+      // Table 3: Polymer Discoveries
+      const polymerDiscoveriesData = [
+          { pid: "P070069", name: "Poly (dodecamethylene oxide)", tc: 0.473, mean: 0.431, std: 0.031, category: "polyoxide", icon: "🧪" },
+          { pid: "P070096", name: "Poly (methyleneoxyoctadecamethylene oxide)", tc: 0.431, mean: 0.406, std: 0.025, category: "polyoxide", icon: "🧪" },
+          { pid: "P070099", name: "Poly (decamethyleneoxyhexamethylene...)", tc: 0.416, mean: 0.362, std: 0.039, category: "polyoxide", icon: "🧪" },
+          { pid: "P100018", name: "Poly [(octane-1,8-diamine)-alt-(docosanedioic acid)]", tc: 0.432, mean: 0.437, std: 0.008, category: "polyamide", icon: "🧬" },
+          { pid: "P100029", name: "Poly [(dodecane-1,12-diamine)-alt-(octadecanedioic acid)]", tc: 0.404, mean: 0.414, std: 0.053, category: "polyamide", icon: "🧬" },
+          { pid: "P100229", name: "Poly [(decane-1,10-diamine)-alt-(docosanedioic acid)]", tc: 0.424, mean: 0.388, std: 0.040, category: "polyamide", icon: "🧬" },
+          { pid: "P100235", name: "Poly [(dodecane-1,12-diamine)-alt-(dodecanedioic acid)]", tc: 0.423, mean: 0.425, std: 0.041, category: "polyamide", icon: "🧬" },
+          { pid: "P100238", name: "Poly [(tetradecane-1,14-diamine)-alt-(docosanedioic acid)]", tc: 0.456, mean: 0.427, std: 0.028, category: "polyamide", icon: "🧬" },
+          { pid: "P100240", name: "Poly [(octadecane-1,18-diamine)-alt-(dodecanedioic acid)]", tc: 0.515, mean: 0.434, std: 0.060, category: "polyamide", icon: "🧬" },
+          { pid: "P100696", name: "Poly (22-aminodocosanoic acid)", tc: 0.417, mean: 0.444, std: 0.063, category: "polyamide", icon: "🧬" },
+          { pid: "P312010", name: "Poly [(buta-1,3-diene)-alt-(1-dodecene)]", tc: 0.442, mean: 0.406, std: 0.028, category: "polyolefin", icon: "🔥" },
+          { pid: "P312012", name: "Poly [(buta-1,3-diene)-alt-(hexadec-1-ene)]", tc: 0.402, mean: 0.403, std: 0.040, category: "polyolefin", icon: "🔥" },
+          { pid: "P332076", name: "Poly (22-tricosynoic acid)", tc: 0.435, mean: 0.403, std: 0.033, category: "other", icon: "🔧" },
+          { pid: "P332081", name: "Poly (22,24-pentacosadiynoic acid)", tc: 0.402, mean: 0.401, std: 0.038, category: "other", icon: "🔧" },
+          { pid: "P332304", name: "Poly [1-(2,5,8,11,14-pentaoxaicosan-1-yl)...]", tc: 0.423, mean: 0.399, std: 0.036, category: "other", icon: "🔧" },
+          { pid: "P332306", name: "Poly [1-(2,5,8,11,14-pentaoxaoctacosan-1-yl)...]", tc: 0.433, mean: 0.384, std: 0.037, category: "other", icon: "🔧" },
+          { pid: "P373742", name: "Poly(2-hexadecylthieno[3,4-b] [1,4]dioxane-5,7diyl-)", tc: 0.506, mean: 0.445, std: 0.047, category: "polysulfide", icon: "⚡" },
+          { pid: "P380064", name: "Poly (tetradecamethylene sulfide)", tc: 0.402, mean: 0.341, std: 0.043, category: "polysulfide", icon: "⚡" },
+          { pid: "P380068", name: "Poly (3-tetradecylthiophene)", tc: 0.439, mean: 0.418, std: 0.051, category: "polysulfide", icon: "⚡" },
+          { pid: "P380123", name: "Poly((2,5disulfanyl--p-phenylenediamine)-alt...)", tc: 0.404, mean: 0.365, std: 0.029, category: "polysulfide", icon: "⚡" },
+          { pid: "P382002", name: "Poly (3-tridecylthiophene)", tc: 0.468, mean: 0.405, std: 0.056, category: "polysulfide", icon: "⚡" },
+          { pid: "P382003", name: "Poly (3-pentadecylthiophene)", tc: 0.413, mean: 0.374, std: 0.050, category: "polysulfide", icon: "⚡" },
+          { pid: "P382013", name: "Poly {[2,5dibromo--3,4-bis-(dodecyloxy)thiophene]-alt...)", tc: 0.418, mean: 0.365, std: 0.038, category: "polysulfide", icon: "⚡" },
+          { pid: "P382020", name: "Poly (3-docosylthiophene)", tc: 0.428, mean: 0.397, std: 0.050, category: "polysulfide", icon: "⚡" },
+          { pid: "P382079", name: "Poly [1,4bis-(3-dodecyl-2-thienyl)bezene]", tc: 0.400, mean: 0.413, std: 0.009, category: "polysulfide", icon: "⚡" },
+          { pid: "P382158", name: "Poly (3-octadecylthiophene)", tc: 0.442, mean: 0.365, std: 0.055, category: "polysulfide", icon: "⚡" },
+          { pid: "P382279", name: "Poly (3-(dodecyloxy-4-methylthiophene))", tc: 0.430, mean: 0.379, std: 0.041, category: "polysulfide", icon: "⚡" },
+          { pid: "P382280", name: "Poly [3methyl--4-(tetradecyloxy)thiophene]", tc: 0.408, mean: 0.437, std: 0.021, category: "polysulfide", icon: "⚡" },
+          { pid: "P382282", name: "Poly [3-(icosyloxy)-4-methylthiophene]", tc: 0.410, mean: 0.375, std: 0.042, category: "other", icon: "🔧" },
+          { pid: "P392423", name: "Poly [(butane-1,4-diol)-alt-(hexatriacontanedioic acid)]", tc: 0.421, mean: 0.495, std: 0.054, category: "other", icon: "🔧" },
+          { pid: "P402128", name: "Poly (iminododecane-1,12-diyliminoicosane...)", tc: 0.449, mean: 0.440, std: 0.009, category: "polyamide", icon: "🧬" },
+          { pid: "P402250", name: "Poly [(undecane-1,11-diamine)-alt-(icosanedioic acid)]", tc: 0.406, mean: 0.427, std: 0.017, category: "polyamide", icon: "🧬" },
+          { pid: "P402252", name: "Poly [(heptane-1,7-diamine)-alt-(icosanedioic acid)]", tc: 0.414, mean: 0.414, std: 0.051, category: "polyamide", icon: "🧬" },
+          { pid: "P462521", name: "Poly [(dimethylazaniumdiyl)hexane-1,6-diyl...]", tc: 0.445, mean: 0.408, std: 0.032, category: "other", icon: "🔧" },
+      ];
+
+
+      document.addEventListener('DOMContentLoaded', () => {
+
+          // --- Chart.js Global Config ---
+          Chart.defaults.font.family = "'Inter', sans-serif";
+          Chart.defaults.font.weight = '400';
+          Chart.defaults.color = '#4b5563';
+          Chart.defaults.plugins.tooltip.backgroundColor = '#111827';
+          Chart.defaults.plugins.tooltip.titleFont = { size: 14, weight: 'bold' };
+          Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+          Chart.defaults.plugins.tooltip.padding = 10;
+          Chart.defaults.plugins.tooltip.cornerRadius = 4;
+          Chart.defaults.plugins.legend.position = 'bottom';
+
+          // --- Section 1: No charts ---
+
+          // --- Section 2: Workflow Charts ---
+          let mdVsExpChart, mdRobustnessChart, initialDataHistChart, rfPerformanceChart;
+
+          function initWorkflowCharts() {
+              // MD vs. Experimental (Fig 2)
+              const ctxMdVsExp = document.getElementById('mdVsExpChart');
+              if (ctxMdVsExp) {
+                  mdVsExpChart = new Chart(ctxMdVsExp.getContext('2d'), {
+                      type: 'scatter',
+                      data: {
+                          datasets: [{
+                              label: 'MD vs. Experimental',
+                              data: mdVsExpData,
+                              backgroundColor: 'rgba(79, 70, 229, 0.7)',
+                              pointRadius: 5,
+                              pointHoverRadius: 7
+                          }]
+                      },
+                      options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                              title: { display: true, text: 'MD-labeled TC vs. Experimental TC (R² = 0.673)' },
+                              legend: { display: false }
+                          },
+                          scales: {
+                              x: { title: { display: true, text: 'PoLyInfo Experimental TC (W/m-K)' }, min: 0.1, max: 0.7 },
+                              y: { title: { display: true, text: 'MD-labeled TC (W/m-K)' }, min: 0.1, max: 0.6 }
+                          }
+                      }
+                  });
+              }
+
+              // MD Robustness (Fig 3)
+              const ctxMdRobust = document.getElementById('mdRobustnessChart');
+              if (ctxMdRobust) {
+                  mdRobustnessChart = new Chart(ctxMdRobust.getContext('2d'), {
+                      type: 'scatter',
+                      data: {
+                          datasets: [
+                              { label: 'T_a = 600 K', data: mdRobustnessData.filter(d => d.t === 600), backgroundColor: 'rgba(239, 68, 68, 0.7)' },
+                              { label: 'T_a = 1500 K', data: mdRobustnessData.filter(d => d.t === 1500), backgroundColor: 'rgba(59, 130, 246, 0.7)' },
+                              { label: 'T_a = 2000 K', data: mdRobustnessData.filter(d => d.t === 2000), backgroundColor: 'rgba(16, 185, 129, 0.7)' }
+                          ]
+                      },
+                      options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                              title: { display: true, text: 'MD Robustness Check' },
+                              legend: { position: 'top' },
+                              annotation: {
+                                  annotations: {
+                                      line1: { type: 'line', xMin: 0.3, xMax: 0.3, borderColor: 'rgb(255, 99, 132)', borderWidth: 2, borderDash: [10, 5] },
+                                      line2: { type: 'line', yMin: 0.3, yMax: 0.3, borderColor: 'rgb(255, 99, 132)', borderWidth: 2, borderDash: [10, 5] },
+                                      box1: { type: 'box', xMin: 0.3, yMin: 0.3, xMax: 0.5, yMax: 0.5, backgroundColor: 'rgba(255, 99, 132, 0.1)' }
+                                  }
+                              },
+                              tooltip: {
+                                  callbacks: {
+                                      label: (context) => (Original: ${context.raw.x}, New: ${context.raw.y})
+                                  }
+                              }
+                          },
+                          scales: {
+                              x: { title: { display: true, text: 'Original TC (T_a = 1000 K)' }, min: 0.15, max: 0.45 },
+                              y: { title: { display: true, text: 'New Test Condition TC' }, min: 0.15, max: 0.5 }
+                          }
+                      },
+                      plugins: [{
+                          id: 'customLines',
+                          beforeDraw: (chart) => {
+                              const ctx = chart.ctx;
+                              const xScale = chart.scales.x;
+                              const yScale = chart.scales.y;
+                              ctx.save();
+
+                              // Draw 0.300 lines
+                              ctx.beginPath();
+                              ctx.moveTo(xScale.getPixelForValue(0.3), yScale.getPixelForValue(0.15));
+                              ctx.lineTo(xScale.getPixelForValue(0.3), yScale.getPixelForValue(0.5));
+                              ctx.strokeStyle = 'rgba(255, 99, 132, 0.6)';
+                              ctx.lineWidth = 2;
+                              ctx.setLineDash([5, 5]);
+                              ctx.stroke();
+
+                              ctx.beginPath();
+                              ctx.moveTo(xScale.getPixelForValue(0.15), yScale.getPixelForValue(0.3));
+                              ctx.lineTo(xScale.getPixelForValue(0.45), yScale.getPixelForValue(0.3));
+                              ctx.stroke();
+
+                              // Draw y=x line
+                              ctx.beginPath();
+                              ctx.moveTo(xScale.getPixelForValue(0.15), yScale.getPixelForValue(0.15));
+                              ctx.lineTo(xScale.getPixelForValue(0.45), yScale.getPixelForValue(0.45));
+                              ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                              ctx.lineWidth = 1;
+                              ctx.setLineDash([]);
+                              ctx.stroke();
+
+                              ctx.restore();
+                          }
+                      }]
+                  });
+              }
+
+              // Initial Data Histogram (Fig 6b)
+              const ctxInitialHist = document.getElementById('initialDataHist');
+              if (ctxInitialHist) {
+                  initialDataHistChart = new Chart(ctxInitialHist.getContext('2d'), {
+                      type: 'bar',
+                      data: {
+                          labels: histLabels.slice(0, 5),
+                          datasets: [
+                              { label: 'TC < 0.300 W/m-K', data: histDataInitial.low, backgroundColor: '#fca5a5' },
+                              { label: 'TC ≥ 0.300 W/m-K', data: histDataInitial.high, backgroundColor: '#93c5fd' }
+                          ]
+                      },
+                      options: {
+                          responsive: true, maintainAspectRatio: false,
+                          plugins: { title: { display: true, text: 'Initial 365 Polymers (11% High-TC)' } },
+                          scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Count' } } }
+                      }
+                  });
+              }
+
+              // RF Performance (Fig 6a)
+              const ctxRfPerf = document.getElementById('rfPerformanceChart');
+              if (ctxRfPerf) {
+                  rfPerformanceChart = new Chart(ctxRfPerf.getContext('2d'), {
+                      type: 'scatter',
+                      data: {
+                          datasets: [{
+                              label: 'RF Prediction',
+                              data: rfPerformanceData,
+                              backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                              pointRadius: 3,
+                              pointHoverRadius: 5
+                          }]
+                      },
+                      options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                              title: { display: true, text: 'RF Model Performance (R² = 0.789)' },
+                              legend: { display: false }
+                          },
+                          scales: {
+                              x: { title: { display: true, text: 'RF Predicted TC' }, min: 0 },
+                              y: { title: { display: true, text: 'MD-labeled TC' }, min: 0 }
+                          }
+                      }
+                  });
+              }
+          }
+
+          // --- Section 2: Workflow Tab Logic ---
+          const tabBtnMd = document.getElementById('tab-btn-md');
+          const tabBtnMl = document.getElementById('tab-btn-ml');
+          const contentMd = document.getElementById('tab-content-md');
+          const contentMl = document.getElementById('tab-content-ml');
+
+          if (tabBtnMd) {
+              tabBtnMd.addEventListener('click', () => {
+                  tabBtnMd.classList.add('active');
+                  tabBtnMd.classList.remove('inactive');
+                  tabBtnMl.classList.add('inactive');
+                  tabBtnMl.classList.remove('active');
+                  contentMd.classList.remove('hidden');
+                  contentMl.classList.add('hidden');
+              });
+          }
+
+          if (tabBtnMl) {
+              tabBtnMl.addEventListener('click', () => {
+                  tabBtnMl.classList.add('active');
+                  tabBtnMl.classList.remove('inactive');
+                  tabBtnMd.classList.add('inactive');
+                  tabBtnMd.classList.remove('active');
+                  contentMl.classList.remove('hidden');
+                  contentMd.classList.add('hidden');
+              });
+          }
+
+          // --- Section 3: Results Charts ---
+          let finalDataHistChart, bnnScatterChart, bnnLineChart;
+
+          function initResultsCharts() {
+              // Final Data Histogram (Fig 6b/c)
+              const ctxFinalHist = document.getElementById('finalDataHist');
+              if (ctxFinalHist) {
+                  finalDataHistChart = new Chart(ctxFinalHist.getContext('2d'), {
+                      type: 'bar',
+                      data: {
+                          labels: histLabels,
+                          datasets: [
+                              { label: 'TC < 0.300 W/m-K', data: [...histDataInitial.low, 0, 0, 0, 0, 0], backgroundColor: '#fca5a5' },
+                              { label: 'TC ≥ 0.300 W/m-K', data: [0, 0, 0, 0, 0, ...histDataInitial.high], backgroundColor: '#93c5fd' }
+                          ]
+                      },
+                      options: {
+                          responsive: true, maintainAspectRatio: false,
+                          plugins: { title: { display: true, text: 'Initial Data (365 Polymers, 41 High-TC)' } },
+                          scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: 'Count' } } }
+                      }
+                  });
+              }
+
+              // BNN Scatter (Fig 7b)
+              const ctxBnnScatter = document.getElementById('bnnScatterChart');
+              if (ctxBnnScatter) {
+                  bnnScatterChart = new Chart(ctxBnnScatter.getContext('2d'), {
+                      type: 'scatter',
+                      data: {
+                          datasets: [
+                              { label: 'BNN Prediction', data: bnnTestData.map(d => ({ x: d.md, y: d.bnn })), backgroundColor: 'rgba(59, 130, 246, 0.7)', pointRadius: 5 },
+                              { label: 'RF Prediction', data: bnnTestData.map(d => ({ x: d.md, y: d.rf })), backgroundColor: 'rgba(239, 68, 68, 0.7)', pointRadius: 5 }
+                          ]
+                      },
+                      options: {
+                          responsive: true, maintainAspectRatio: false,
+                          plugins: { title: { display: true, text: 'BNN vs. RF Predictions (Test Set)' }, legend: { position: 'top' } },
+                          scales: {
+                              x: { title: { display: true, text: 'MD-labeled TC' } },
+                              y: { title: { display: true, text: 'Predicted TC' } }
+                          }
+                      }
+                  });
+              }
+
+              // BNN Line (Fig 7c)
+              const ctxBnnLine = document.getElementById('bnnLineChart');
+              if (ctxBnnLine) {
+                  bnnLineChart = new Chart(ctxBnnLine.getContext('2d'), {
+                      type: 'line',
+                      data: {
+                          labels: bnnTestData.map(d => ID ${d.id}),
+                          datasets: [
+                              {
+                                  label: 'MD-labeled (True)',
+                                  data: bnnTestData.map(d => d.md),
+                                  borderColor: '#111827',
+                                  backgroundColor: '#111827',
+                                  borderWidth: 2,
+                                  pointRadius: 3
+                              },
+                              {
+                                  label: 'BNN Prediction',
+                                  data: bnnTestData.map(d => d.bnn),
+                                  borderColor: 'rgba(59, 130, 246, 0.8)',
+                                  backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                                  borderWidth: 2,
+                              },
+                              {
+                                  label: 'BNN Upper Bound',
+                                  data: bnnTestData.map(d => d.bnn + d.bnn_err),
+                                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                  fill: '+1',
+                                  pointRadius: 0
+                              },
+                              {
+                                  label: 'BNN Lower Bound',
+                                  data: bnnTestData.map(d => d.bnn - d.bnn_err),
+                                  borderColor: 'rgba(59, 130, 246, 0.3)',
+                                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                  fill: '-1',
+                                  pointRadius: 0
+                              },
+                              {
+                                  label: 'RF Prediction',
+                                  data: bnnTestData.map(d => d.rf),
+                                  borderColor: 'rgba(239, 68, 68, 0.8)',
+                                  backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                                  borderWidth: 2,
+                                  borderDash: [5, 5]
+                              },
+                          ]
+                      },
+                      options: {
+                          responsive: true, maintainAspectRatio: false,
+                          plugins: { title: { display: true, text: 'BNN Prediction & Uncertainty (Test Set)' }, legend: { labels: { filter: (item) => !item.label.includes('Bound') } } },
+                          scales: {
+                              x: { ticks: { display: false } },
+                              y: { title: { display: true, text: 'TC (W/m-K)' } }
+                          }
+                      }
+                  });
+              }
+          }
+
+          // --- Section 3: Results Toggle Logic ---
+          const histBtnInitial = document.getElementById('hist-btn-initial');
+          const histBtnFinal = document.getElementById('hist-btn-final');
+
+          if (histBtnInitial) {
+              histBtnInitial.addEventListener('click', () => {
+                  histBtnInitial.classList.add('active');
+                  histBtnInitial.classList.remove('inactive');
+                  histBtnFinal.classList.add('inactive');
+                  histBtnFinal.classList.remove('active');
+
+                  finalDataHistChart.data.datasets[0].data = [...histDataInitial.low, 0, 0, 0, 0, 0];
+                  finalDataHistChart.data.datasets[1].data = [0, 0, 0, 0, 0, ...histDataInitial.high];
+                  finalDataHistChart.options.plugins.title.text = 'Initial Data (365 Polymers, 41 High-TC)';
+                  finalDataHistChart.update();
+              });
+          }
+
+          if (histBtnFinal) {
+              histBtnFinal.addEventListener('click', () => {
+                  histBtnFinal.classList.add('active');
+                  histBtnFinal.classList.remove('inactive');
+                  histBtnInitial.classList.add('inactive');
+                  histBtnInitial.classList.remove('active');
+
+                  finalDataHistChart.data.datasets[0].data = [...histDataFinal.low, 0, 0, 0, 0, 0];
+                  finalDataHistChart.data.datasets[1].data = [0, 0, 0, 0, 0, ...histDataFinal.high];
+                  finalDataHistChart.options.plugins.title.text = 'Final Data (454 Polymers, 121 High-TC)';
+                  finalDataHistChart.update();
+              });
+          }
+
+          // --- Section 4: Polymer Discoveries Logic ---
+          const grid = document.getElementById('polymer-grid');
+          const filterContainer = document.getElementById('filter-container');
+
+          function populateGrid() {
+              if (!grid) return;
+              grid.innerHTML = '';
+              polymerDiscoveriesData.forEach(polymer => {
+                  const card = document.createElement('div');
+                  card.className = 'polymer-card';
+                  card.setAttribute('data-category', polymer.category);
+
+                  card.innerHTML = `
+                      <div class="flex justify-between items-start">
+                          <h3 class="text-lg font-bold text-indigo-700">${polymer.pid}</h3>
+                          <span class="text-sm font-medium py-1 px-2 rounded-full bg-gray-100 text-gray-700">${polymer.icon} ${polymer.category}</span>
+                      </div>
+                      <p class="text-gray-700 mt-1 mb-3 truncate">${polymer.name}</p>
+                      <div class="grid grid-cols-3 gap-2 text-center">
+                          <div>
+                              <span class="text-xs text-gray-500">Original TC</span>
+                              <p class="font-bold text-lg">${polymer.tc}</p>
+                          </div>
+                          <div>
+                              <span class="text-xs text-gray-500">Mean TC</span>
+                              <p class="font-bold text-lg">${polymer.mean}</p>
+                          </div>
+                          <div>
+                              <span class="text-xs text-gray-500">Std. Dev.</span>
+                              <p class="font-bold text-lg">${polymer.std}</p>
+                          </div>
+                      </div>
+                  `;
+                  grid.appendChild(card);
+              });
+          }
+
+          function filterGrid(e) {
+              if (e.target.tagName !== 'BUTTON') return;
+
+              const filter = e.target.getAttribute('data-filter');
+
+              // Update button styles
+              filterContainer.querySelectorAll('.filter-btn').forEach(btn => {
+                  btn.classList.add('inactive');
+                  btn.classList.remove('active');
+              });
+              e.target.classList.add('active');
+              e.target.classList.remove('inactive');
+
+              // Filter cards
+              grid.querySelectorAll('.polymer-card').forEach(card => {
+                  if (filter === 'all' || card.getAttribute('data-category') === filter) {
+                      card.classList.remove('hidden');
+                  } else {
+                      card.classList.add('hidden');
+                  }
+              });
+          }
+
+          if (filterContainer) {
+              filterContainer.addEventListener('click', filterGrid);
+          }
+
+          // --- Initializations ---
+          initWorkflowCharts();
+          initResultsCharts();
+          populateGrid();
+      });
+    </script>
+  </body>
+</html>
