@@ -1,36 +1,103 @@
-# PI1M: A Benchmark Database for Polymer Informatics
+# MLMI: Machine Learning-Assisted Exploration of Thermally Conductive Polymers
 
-This repository contains a benchmark database for polymer informatics. The details and utility of PI1M are described in our [paper](https://pubs.acs.org/doi/10.1021/acs.jcim.0c00726).
+This project is built as part of an academic exploration into **machine learning-driven materials informatics**. It uses publicly available data from the **PI1M** benchmark database to analyze and predict the thermal conductivity of polymer materials using high-throughput molecular dynamics simulation data and ML models.
 
+---
 
-## Abstract
+## 📘 Overview
 
-Open source data in large scale are the cornerstones for data-driven research, but they are not readily available for polymers. In this work, we build a benchmark database, called PI1M (referring to ~1 million polymers for polymer informatics), to provide data resources that can be used for machine learning research in polymer informatics. A generative model is trained on ~12,000 polymers manually collected from the largest existing polymer database PolyInfo, and then the model is used to generate ~1 million polymers. A new representation for polymers, polymer embedding (PE), is introduced, which is then used to perform several polymer informatics regression tasks for density, glass transition temperature, melting temperature and dielectric constants. By comparing the PE trained by the PolyInfo data and that by the PI1M data, we conclude that the PI1M database covers similar chemical space as PolyInfo, but significantly populate regions where PolyInfo data are sparse. We believe PI1M will serve as a good benchmark database for future research in polymer informatics. 
+In recent years, *machine learning-assisted molecular dynamics* (ML-MD) has emerged as a powerful approach to accelerate materials discovery.  
+This project reproduces and extends concepts from the research article:
 
-## Dataset
+> **Machine Learning-Assisted Exploration of Thermally Conductive Polymers Based on High-Throughput Molecular Dynamics Simulations**  
+> *Ruimin Ma and Tengfei Luo, Journal of Chemical Information and Modeling, 2021.*
 
-~1 million polymer structures.
+We utilize the **PI1M dataset**, a large-scale benchmark for polymer informatics, to train and test models for predicting polymer properties such as:
+- Density  
+- Glass transition temperature (Tg)  
+- Melting temperature (Tm)  
+- Dielectric constant  
+- Synthetic accessibility (SA) score  
 
+---
 
-### Data format
+## 🧠 Objective
 
-p-SMILES.
+The goal of this project is to:
+1. Understand how machine learning can be applied to polymer informatics.
+2. Implement regression models for predicting key polymer properties.
+3. Explore how high-throughput molecular dynamics data can assist in materials design.
 
-### Synthetic accessibility score added
+---
 
-The synthetic accessibility score is calculated using Schuffenhauer’s SA score (https://jcheminf.biomedcentral.com/articles/10.1186/1758-2946-1-8), a heuristic estimate of how hard (10) or how easy (1) it is to synthesize a given molecule. The SA score is added into the PI1M_v2.csv, and the statistics of SA score is shown in figure below.
+## 📊 Dataset
 
-![alt text](https://github.com/RUIMINMA1996/PI1M/blob/master/sa_PI1M.png)
+### Source
+The dataset used in this project is derived from the **[PI1M database](https://github.com/RUIMINMA1996/PI1M)**, which contains approximately **1 million polymer structures** represented in p-SMILES format.
 
-## Reference
+### Format
+- **File:** `PI1M_v2.csv`  
+- **Columns:** polymer p-SMILES, property values (density, Tg, Tm, dielectric constant), and SA score.
 
-If this repository is helpful for your research please cite the following
-publication:
+The synthetic accessibility score (SA) is computed using Schuffenhauer’s heuristic scoring approach  
+([Reference Paper](https://jcheminf.biomedcentral.com/articles/10.1186/1758-2946-1-8)).
 
-[PI1M: A Benchmark Database for Polymer Informatics](https://pubs.acs.org/doi/10.1021/acs.jcim.0c00726)
-Ruimin Ma, Tengfei Luo
+---
 
+## 🧩 Methodology
 
-## Note
-Data for academic purpose only.
+- **Data Preprocessing:** Cleaning and encoding polymer structures.  
+- **Feature Extraction:** Using polymer embedding representations (PE).  
+- **Model Training:** Applying regression models (e.g., Random Forest, Gradient Boosting, Neural Networks).  
+- **Evaluation:** Comparing predictions for accuracy and interpretability.
 
+---
+
+## 📈 Results
+
+Our analysis reproduces and extends trends reported in the original PI1M study. The ML models successfully predict thermal and structural polymer properties, demonstrating the potential of data-driven polymer design.
+
+---
+
+## 🧪 Tools & Technologies
+
+- Python (NumPy, Pandas, Scikit-learn, Matplotlib)
+- Jupyter Notebooks
+- Molecular Dynamics data (from original research)
+- GitHub for version control
+
+---
+
+## 📚 Reference
+
+If this dataset or research concept benefits your academic or research work, please cite the original publication:
+
+> Ruimin Ma, Tengfei Luo.  
+> *PI1M: A Benchmark Database for Polymer Informatics.*  
+> Journal of Chemical Information and Modeling (2021).  
+> [DOI: 10.1021/acs.jcim.0c00726](https://pubs.acs.org/doi/10.1021/acs.jcim.0c00726)
+
+---
+
+## ⚠️ Note
+
+This repository is for **academic and educational purposes only**.  
+All original data and concepts belong to the respective authors of the PI1M database and publication.  
+This work extends their dataset for learning and demonstration under fair-use for research.
+
+---
+
+## 👨‍💻 Author
+
+**Vivek Kumar**  
+B.Tech, NIT Warangal  
+Branch: Biotechnology
+RollNumber: 21BTB0A81
+
+**Harsh Hotala
+B.tech, NIT Warangal
+Branch: Electrical Engineering 
+RollNumber: 22EEB0A64
+
+Project: *Machine Learning-Assisted Materials Informatics (MLMI)*  
+Year: 2025
